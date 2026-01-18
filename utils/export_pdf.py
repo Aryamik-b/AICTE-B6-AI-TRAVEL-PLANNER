@@ -79,7 +79,7 @@ def generate_pdf_bytes(title: str, content: str) -> bytes:
         # Bullet points
         if line.startswith("- "):
             pdf.set_font("Arial", size=11)
-            pdf.multi_cell(0, 6, "• " + line[2:].strip())
+            pdf.multi_cell(0, 6,clean_text("- " + line[2:].strip()))
             continue
 
         # Normal paragraph
