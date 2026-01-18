@@ -2,9 +2,6 @@ import requests
 import streamlit as st
 
 
-# ----------------------------------------------------
-# City Autocomplete (Nominatim)
-# ----------------------------------------------------
 @st.cache_data(ttl=3600)
 def search_cities(query: str, limit: int = 8):
     if not query or len(query) < 2:
@@ -41,9 +38,7 @@ def clean_city_name(full_location: str) -> str:
     return full_location.split(",")[0].strip()
 
 
-# ----------------------------------------------------
-# Geocoding
-# ----------------------------------------------------
+
 @st.cache_data(ttl=86400)
 def geocode_city(city: str):
     if not city:
@@ -64,9 +59,7 @@ def geocode_city(city: str):
         return None
 
 
-# ----------------------------------------------------
-# General Attractions (robust)
-# ----------------------------------------------------
+
 @st.cache_data(ttl=86400)
 def get_attractions_osm(city: str, limit: int = 12, radius_m: int = 20000):
     coords = geocode_city(city)
@@ -105,9 +98,7 @@ def get_attractions_osm(city: str, limit: int = 12, radius_m: int = 20000):
     return unique_places[:limit]
 
 
-# ----------------------------------------------------
-# Categorized City Places (beaches/hills/adventure/culture)
-# ----------------------------------------------------
+
 @st.cache_data(ttl=86400)
 def get_city_categories(city: str, radius_m: int = 40000, limit_each: int = 8):
     coords = geocode_city(city)
@@ -190,9 +181,7 @@ def get_city_categories(city: str, radius_m: int = 40000, limit_each: int = 8):
     }
 
 
-# ----------------------------------------------------
-# Nearby Trips (day trips within ~150-200km)
-# ----------------------------------------------------
+
 @st.cache_data(ttl=86400)
 def get_nearby_day_trips(city: str, radius_m: int = 200000, limit_each: int = 8):
     """
