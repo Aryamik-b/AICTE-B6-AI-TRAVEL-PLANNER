@@ -8,11 +8,9 @@ def clean_text(text: str) -> str:
     """
     if not text:
         return ""
-
-    # Remove common markdown symbols
+  
     text = re.sub(r"[*_`>#]", "", text)
 
-    # Replace bullets
     text = text.replace("•", "-")
 
     return text.strip()
@@ -26,12 +24,12 @@ def generate_pdf_bytes(title: str, content: str) -> bytes:
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
 
-    # Title
+
     pdf.set_font("Arial", style="B", size=16)
     pdf.multi_cell(0, 10, title)
     pdf.ln(4)
 
-    # Content
+    
     pdf.set_font("Arial", size=11)
     cleaned = clean_text(content)
 
@@ -39,5 +37,5 @@ def generate_pdf_bytes(title: str, content: str) -> bytes:
         pdf.multi_cell(0, 6, line)
     pdf.ln(2)
 
-    # Output as bytes
+    
     return pdf.output(dest="S").encode("latin-1", "ignore")

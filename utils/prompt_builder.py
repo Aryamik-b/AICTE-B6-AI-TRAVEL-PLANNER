@@ -28,7 +28,7 @@ def _format_dict_sections(data: dict, fallback="Not available"):
             found_any = True
             lines.append(f"{k}:")
             lines.extend([f"- {x}" for x in v])
-            lines.append("")  # blank line between categories
+            lines.append("") 
 
     if not found_any:
         return fallback
@@ -58,7 +58,6 @@ def build_prompt(
     - Currency control (USD/EUR/INR etc.)
     """
 
-    # Normalize currency safely
     currency = (currency or "INR").strip().upper()
 
     interests_text = ", ".join(interests) if interests else "General"
