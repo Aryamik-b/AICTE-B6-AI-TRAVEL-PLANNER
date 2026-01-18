@@ -74,4 +74,7 @@ def generate_pdf_bytes(title: str, content: str) -> bytes:
                 safe = safe[:90]
                 pdf.multi_cell(180, 6, safe)
 
-    return pdf.output(dest="S").encode("latin-1", "ignore")
+    out = pdf.output(dest="S")
+    if isinstance(out,(bytes, bytearray)):
+        return bytes(out)
+    return out.encode("latin-1","ignore")
