@@ -3,57 +3,48 @@ import streamlit as st
 import re
 
 
-# ----------------------------------------------------
-# Helper: filter low-quality/non-tourist names
-# ----------------------------------------------------
 def is_valid_tourist_place(name: str) -> bool:
     if not name:
         return False
 
     n = name.strip().lower()
 
-    # too short / noisy
     if len(n) < 4:
         return False
 
-    # remove pure digits or codes
     if re.fullmatch(r"[0-9\-_/]+", n):
         return False
 
-    # common non-tourist keywords
+    
     blacklist = [
-        # residential / locality noise
+
         "nagar", "colony", "layout", "extension", "enclave", "vihar",
         "sector", "phase", "block", "ward", "street", "road", "lane",
         "avenue", "circle", "junction", "signal", "cross",
 
-        # institutions / offices
         "corporation", "municipality", "office", "collectorate",
         "secretariat", "department",
 
-        # facilities/services
         "atm", "bank", "police", "station", "post office", "courier",
         "hospital", "clinic", "pharmacy", "medical", "diagnostic",
         "school", "college", "university", "institute", "coaching",
         "hostel", "pg", "apartment", "residency", "complex",
 
-        # shops / small businesses
         "store", "mart", "supermarket", "bakery", "salon",
 
-        # clubs/gyms etc.
+        
         "club", "tennis", "gym", "fitness", "association",
 
-        # religious very generic
+        
         "temple", "church", "mosque"
-    ]
 
-    # allow famous religious places later only if they have strong tags; here we block generic
-    # you can relax this later if needed
+        "yoga", "swimming pool", "pool", "resort", "villa", "apartment"
+
+    ]
 
     if any(b in n for b in blacklist):
         return False
 
-    # avoid too generic names
     generic_names = {"park", "beach", "museum", "lake", "viewpoint"}
     if n in generic_names:
         return False
@@ -65,9 +56,6 @@ def uniq(items):
     return list(dict.fromkeys(items))
 
 
-# ----------------------------------------------------
-# City Autocomplete (Nominatim)
-# ----------------------------------------------------
 @st.cache_data(ttl=3600)
 def search_cities(query: str, limit: int = 8):
     if not query or len(query) < 2:
@@ -99,19 +87,14 @@ def clean_city_name(full_location: str) -> str:
 
     city = full_location.split(",")[0].strip()
 
-    # remove noisy suffix words
     noisy = ["Corporation", "Municipality", "District", "Division", "Region", "Metropolitan"]
     for w in noisy:
         city = city.replace(w, "").strip()
 
-    # remove double spaces
     city = re.sub(r"\s+", " ", city).strip()
     return city
 
 
-# ----------------------------------------------------
-# Geocoding
-# ----------------------------------------------------
 @st.cache_data(ttl=86400)
 def geocode_city(city: str):
     if not city:
@@ -132,9 +115,6 @@ def geocode_city(city: str):
         return None
 
 
-# ----------------------------------------------------
-# Improved Attractions (better tags)
-# ----------------------------------------------------
 @st.cache_data(ttl=86400)
 def get_attractions_osm(city: str, limit: int = 15, radius_m: int = 30000):
     coords = geocode_city(city)
@@ -176,9 +156,6 @@ def get_attractions_osm(city: str, limit: int = 15, radius_m: int = 30000):
     return uniq(places)[:limit]
 
 
-# ----------------------------------------------------
-# Categorized City Places
-# ----------------------------------------------------
 @st.cache_data(ttl=86400)
 def get_city_categories(city: str, radius_m: int = 40000, limit_each: int = 10):
     coords = geocode_city(city)
@@ -188,7 +165,6 @@ def get_city_categories(city: str, radius_m: int = 40000, limit_each: int = 10):
     lat, lon = coords
     overpass_url = "https://overpass-api.de/api/interpreter"
 
-    # More accurate tags for travel planning
     query = f"""
     [out:json];
     (
@@ -236,12 +212,10 @@ def get_city_categories(city: str, radius_m: int = 40000, limit_each: int = 10):
         if not name:
             continue
 
-        # allow beaches even if name is generic sometimes
         if tags.get("natural") == "beach":
             beaches.append(name)
             continue
 
-        # For non-beach categories, use strict filter to remove junk
         if not is_valid_tourist_place(name):
             continue
 
@@ -263,9 +237,6 @@ def get_city_categories(city: str, radius_m: int = 40000, limit_each: int = 10):
     }
 
 
-# ----------------------------------------------------
-# Nearby Trips (day trips)
-# ----------------------------------------------------
 @st.cache_data(ttl=86400)
 def get_nearby_day_trips(city: str, radius_m: int = 200000, limit_each: int = 10):
     coords = geocode_city(city)
@@ -314,7 +285,6 @@ def get_nearby_day_trips(city: str, radius_m: int = 200000, limit_each: int = 10
         if not name:
             continue
 
-        # beaches can be included even without strict filter
         if tags.get("natural") == "beach":
             beaches.append(name)
             continue

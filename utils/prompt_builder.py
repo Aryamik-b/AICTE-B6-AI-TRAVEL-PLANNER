@@ -110,6 +110,11 @@ STRICT DATA RULE:
 - While writing itinerary, use the exact place names as given (no renaming).
 - Each day should contain 2–4 places maximum (realistic pace).
 
+TOURIST QUALITY RULE:
+- Prefer famous tourist attractions (forts, popular beaches, museums, landmarks, viewpoints).
+- Avoid generic places like: swimming pool, yoga, club, gym, apartment, school, hospital, locality names.
+- Use beaches/forts/churches/museums over residential/local facilities.
+
 Return the response with these Markdown headings:
 
 ## Day-wise Itinerary
