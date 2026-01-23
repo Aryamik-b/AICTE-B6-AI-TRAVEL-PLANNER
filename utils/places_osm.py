@@ -1,32 +1,80 @@
 import requests
 import streamlit as st
+import re
 
+
+# ----------------------------------------------------
+# Helper: filter low-quality/non-tourist names
+# ----------------------------------------------------
 def is_valid_tourist_place(name: str) -> bool:
     if not name:
         return False
-    n = name.lower()
 
+    n = name.strip().lower()
+
+    # too short / noisy
+    if len(n) < 4:
+        return False
+
+    # remove pure digits or codes
+    if re.fullmatch(r"[0-9\-_/]+", n):
+        return False
+
+    # common non-tourist keywords
     blacklist = [
-        "club", "tennis", "gym", "school", "college", "office", "corporation",
-        "pvt", "private", "hospital", "clinic", "atm", "police", "bank",
-        "apartment", "residency", "hostel", "complex"
+        # residential / locality noise
+        "nagar", "colony", "layout", "extension", "enclave", "vihar",
+        "sector", "phase", "block", "ward", "street", "road", "lane",
+        "avenue", "circle", "junction", "signal", "cross",
+
+        # institutions / offices
+        "corporation", "municipality", "office", "collectorate",
+        "secretariat", "department",
+
+        # facilities/services
+        "atm", "bank", "police", "station", "post office", "courier",
+        "hospital", "clinic", "pharmacy", "medical", "diagnostic",
+        "school", "college", "university", "institute", "coaching",
+        "hostel", "pg", "apartment", "residency", "complex",
+
+        # shops / small businesses
+        "store", "mart", "supermarket", "bakery", "salon",
+
+        # clubs/gyms etc.
+        "club", "tennis", "gym", "fitness", "association",
+
+        # religious very generic
+        "temple", "church", "mosque"
     ]
 
-    return not any(b in n for b in blacklist)
+    # allow famous religious places later only if they have strong tags; here we block generic
+    # you can relax this later if needed
+
+    if any(b in n for b in blacklist):
+        return False
+
+    # avoid too generic names
+    generic_names = {"park", "beach", "museum", "lake", "viewpoint"}
+    if n in generic_names:
+        return False
+
+    return True
 
 
+def uniq(items):
+    return list(dict.fromkeys(items))
+
+
+# ----------------------------------------------------
+# City Autocomplete (Nominatim)
+# ----------------------------------------------------
 @st.cache_data(ttl=3600)
 def search_cities(query: str, limit: int = 8):
     if not query or len(query) < 2:
         return []
 
     url = "https://nominatim.openstreetmap.org/search"
-    params = {
-        "q": query,
-        "format": "json",
-        "addressdetails": 1,
-        "limit": limit
-    }
+    params = {"q": query, "format": "json", "addressdetails": 1, "limit": limit}
     headers = {"User-Agent": "AITravelPlanner/1.0 (streamlit app)"}
 
     try:
@@ -42,23 +90,28 @@ def search_cities(query: str, limit: int = 8):
         if display_name:
             suggestions.append(display_name)
 
-    return list(dict.fromkeys(suggestions))
+    return uniq(suggestions)
 
 
 def clean_city_name(full_location: str) -> str:
     if not full_location:
         return ""
+
     city = full_location.split(",")[0].strip()
 
-    bad = ["corporation", "municipality", "district", "division", "region"]
-    for word in bad:
-        city = city.replace(word.title(), "").replace(word.lower(), "").strip()
+    # remove noisy suffix words
+    noisy = ["Corporation", "Municipality", "District", "Division", "Region", "Metropolitan"]
+    for w in noisy:
+        city = city.replace(w, "").strip()
 
+    # remove double spaces
+    city = re.sub(r"\s+", " ", city).strip()
     return city
 
 
-
-
+# ----------------------------------------------------
+# Geocoding
+# ----------------------------------------------------
 @st.cache_data(ttl=86400)
 def geocode_city(city: str):
     if not city:
@@ -79,9 +132,11 @@ def geocode_city(city: str):
         return None
 
 
-
+# ----------------------------------------------------
+# Improved Attractions (better tags)
+# ----------------------------------------------------
 @st.cache_data(ttl=86400)
-def get_attractions_osm(city: str, limit: int = 12, radius_m: int = 20000):
+def get_attractions_osm(city: str, limit: int = 15, radius_m: int = 30000):
     coords = geocode_city(city)
     if not coords:
         return []
@@ -94,8 +149,11 @@ def get_attractions_osm(city: str, limit: int = 12, radius_m: int = 20000):
     (
       node(around:{radius_m},{lat},{lon})["tourism"="attraction"];
       node(around:{radius_m},{lat},{lon})["tourism"="museum"];
-      node(around:{radius_m},{lat},{lon})["historic"="monument"];
-      node(around:{radius_m},{lat},{lon})["amenity"="place_of_worship"];
+      node(around:{radius_m},{lat},{lon})["tourism"="gallery"];
+      node(around:{radius_m},{lat},{lon})["tourism"="viewpoint"];
+      node(around:{radius_m},{lat},{lon})["historic"];
+      node(around:{radius_m},{lat},{lon})["man_made"="lighthouse"];
+      node(around:{radius_m},{lat},{lon})["natural"="beach"];
       node(around:{radius_m},{lat},{lon})["leisure"="park"];
     );
     out tags;
@@ -110,17 +168,19 @@ def get_attractions_osm(city: str, limit: int = 12, radius_m: int = 20000):
 
     places = []
     for element in data.get("elements", []):
-        name = element.get("tags", {}).get("name")
-        if name:
+        tags = element.get("tags", {})
+        name = tags.get("name")
+        if name and is_valid_tourist_place(name):
             places.append(name)
 
-    unique_places = list(dict.fromkeys(places))
-    return unique_places[:limit]
+    return uniq(places)[:limit]
 
 
-
+# ----------------------------------------------------
+# Categorized City Places
+# ----------------------------------------------------
 @st.cache_data(ttl=86400)
-def get_city_categories(city: str, radius_m: int = 40000, limit_each: int = 8):
+def get_city_categories(city: str, radius_m: int = 40000, limit_each: int = 10):
     coords = geocode_city(city)
     if not coords:
         return {}
@@ -128,6 +188,7 @@ def get_city_categories(city: str, radius_m: int = 40000, limit_each: int = 8):
     lat, lon = coords
     overpass_url = "https://overpass-api.de/api/interpreter"
 
+    # More accurate tags for travel planning
     query = f"""
     [out:json];
     (
@@ -135,26 +196,27 @@ def get_city_categories(city: str, radius_m: int = 40000, limit_each: int = 8):
       node(around:{radius_m},{lat},{lon})["natural"="beach"];
       way(around:{radius_m},{lat},{lon})["natural"="beach"];
 
-      // Hill stations / Viewpoints / Peaks
-      node(around:{radius_m},{lat},{lon})["tourism"="viewpoint"];
+      // Hill / Peaks / Viewpoints
       node(around:{radius_m},{lat},{lon})["natural"="peak"];
+      node(around:{radius_m},{lat},{lon})["tourism"="viewpoint"];
       node(around:{radius_m},{lat},{lon})["natural"="hill"];
+
+      // Waterfalls
+      node(around:{radius_m},{lat},{lon})["waterway"="waterfall"];
+      node(around:{radius_m},{lat},{lon})["natural"="waterfall"];
 
       // Adventure / Fun
       node(around:{radius_m},{lat},{lon})["leisure"="water_park"];
       node(around:{radius_m},{lat},{lon})["tourism"="theme_park"];
       node(around:{radius_m},{lat},{lon})["tourism"="zoo"];
-      node(around:{radius_m},{lat},{lon})["sport"];
+      node(around:{radius_m},{lat},{lon})["tourism"="attraction"];
       node(around:{radius_m},{lat},{lon})["leisure"="park"];
 
-      // Waterfalls / Nature
-      node(around:{radius_m},{lat},{lon})["waterway"="waterfall"];
-      node(around:{radius_m},{lat},{lon})["natural"="waterfall"];
-
       // Culture / History
-      node(around:{radius_m},{lat},{lon})["historic"="monument"];
+      node(around:{radius_m},{lat},{lon})["historic"];
       node(around:{radius_m},{lat},{lon})["tourism"="museum"];
-      node(around:{radius_m},{lat},{lon})["amenity"="place_of_worship"];
+      node(around:{radius_m},{lat},{lon})["tourism"="gallery"];
+      node(around:{radius_m},{lat},{lon})["man_made"="lighthouse"];
     );
     out tags;
     """
@@ -166,7 +228,7 @@ def get_city_categories(city: str, radius_m: int = 40000, limit_each: int = 8):
     except Exception:
         return {}
 
-    beaches, hills, adventure, waterfalls, culture = [], [], [], [], []
+    beaches, hills, waterfalls, adventure, culture = [], [], [], [], []
 
     for element in data.get("elements", []):
         tags = element.get("tags", {})
@@ -174,40 +236,38 @@ def get_city_categories(city: str, radius_m: int = 40000, limit_each: int = 8):
         if not name:
             continue
 
+        # allow beaches even if name is generic sometimes
         if tags.get("natural") == "beach":
             beaches.append(name)
+            continue
 
-        elif tags.get("tourism") == "viewpoint" or tags.get("natural") in ["peak", "hill"]:
+        # For non-beach categories, use strict filter to remove junk
+        if not is_valid_tourist_place(name):
+            continue
+
+        if tags.get("tourism") == "viewpoint" or tags.get("natural") in ["peak", "hill"]:
             hills.append(name)
-
-        elif tags.get("leisure") == "water_park" or tags.get("tourism") in ["theme_park", "zoo"] or tags.get("sport") or tags.get("leisure") == "park":
-            adventure.append(name)
-
         elif tags.get("waterway") == "waterfall" or tags.get("natural") == "waterfall":
             waterfalls.append(name)
-
-        elif tags.get("historic") == "monument" or tags.get("tourism") == "museum" or tags.get("amenity") == "place_of_worship":
+        elif tags.get("leisure") == "water_park" or tags.get("tourism") in ["theme_park", "zoo", "attraction"] or tags.get("leisure") == "park":
+            adventure.append(name)
+        elif tags.get("historic") is not None or tags.get("tourism") in ["museum", "gallery"] or tags.get("man_made") == "lighthouse":
             culture.append(name)
 
-    def uniq(items):
-        return list(dict.fromkeys(items))[:limit_each]
-
     return {
-        "Beaches 🏖️": uniq(beaches),
-        "Hill Stations / Viewpoints ⛰️": uniq(hills),
-        "Waterfalls 🌊": uniq(waterfalls),
-        "Adventure / Fun 🎢": uniq(adventure),
-        "Culture / History 🏛️": uniq(culture),
+        "Beaches 🏖️": uniq(beaches)[:limit_each],
+        "Hill Stations / Viewpoints ⛰️": uniq(hills)[:limit_each],
+        "Waterfalls 🌊": uniq(waterfalls)[:limit_each],
+        "Adventure / Fun 🎢": uniq(adventure)[:limit_each],
+        "Culture / History 🏛️": uniq(culture)[:limit_each],
     }
 
 
-
+# ----------------------------------------------------
+# Nearby Trips (day trips)
+# ----------------------------------------------------
 @st.cache_data(ttl=86400)
-def get_nearby_day_trips(city: str, radius_m: int = 200000, limit_each: int = 8):
-    """
-    Finds nearby destinations (day trips) using broader radius.
-    Example: Vizag -> Araku Valley, Borra Caves etc.
-    """
+def get_nearby_day_trips(city: str, radius_m: int = 200000, limit_each: int = 10):
     coords = geocode_city(city)
     if not coords:
         return {}
@@ -218,26 +278,23 @@ def get_nearby_day_trips(city: str, radius_m: int = 200000, limit_each: int = 8)
     query = f"""
     [out:json];
     (
-      // Hill / mountain / viewpoints
-      node(around:{radius_m},{lat},{lon})["natural"="peak"];
+      // Common day-trip type places
+      node(around:{radius_m},{lat},{lon})["tourism"="attraction"];
+      node(around:{radius_m},{lat},{lon})["historic"];
       node(around:{radius_m},{lat},{lon})["tourism"="viewpoint"];
-      node(around:{radius_m},{lat},{lon})["place"="village"];
-      node(around:{radius_m},{lat},{lon})["place"="town"];
+      node(around:{radius_m},{lat},{lon})["natural"="peak"];
+      node(around:{radius_m},{lat},{lon})["natural"="hill"];
 
-      // Waterfalls & nature
+      // Waterfalls / nature
       node(around:{radius_m},{lat},{lon})["waterway"="waterfall"];
       node(around:{radius_m},{lat},{lon})["natural"="waterfall"];
 
-      // Caves / special natural
+      // Caves
       node(around:{radius_m},{lat},{lon})["natural"="cave_entrance"];
 
-      // Beaches (coastal trips)
+      // Beaches
       node(around:{radius_m},{lat},{lon})["natural"="beach"];
       way(around:{radius_m},{lat},{lon})["natural"="beach"];
-
-      // Wildlife / parks
-      node(around:{radius_m},{lat},{lon})["boundary"="national_park"];
-      node(around:{radius_m},{lat},{lon})["leisure"="nature_reserve"];
     );
     out tags;
     """
@@ -249,7 +306,7 @@ def get_nearby_day_trips(city: str, radius_m: int = 200000, limit_each: int = 8)
     except Exception:
         return {}
 
-    hill_trips, nature_trips, beach_trips, special_trips = [], [], [], []
+    hills, nature, beaches, special = [], [], [], []
 
     for element in data.get("elements", []):
         tags = element.get("tags", {})
@@ -257,24 +314,27 @@ def get_nearby_day_trips(city: str, radius_m: int = 200000, limit_each: int = 8)
         if not name:
             continue
 
-        if tags.get("natural") in ["peak"] or tags.get("tourism") == "viewpoint":
-            hill_trips.append(name)
+        # beaches can be included even without strict filter
+        if tags.get("natural") == "beach":
+            beaches.append(name)
+            continue
 
-        elif tags.get("waterway") == "waterfall" or tags.get("natural") in ["waterfall"]:
-            nature_trips.append(name)
+        if not is_valid_tourist_place(name):
+            continue
 
-        elif tags.get("natural") == "beach":
-            beach_trips.append(name)
-
+        if tags.get("tourism") == "viewpoint" or tags.get("natural") in ["peak", "hill"]:
+            hills.append(name)
+        elif tags.get("waterway") == "waterfall" or tags.get("natural") == "waterfall":
+            nature.append(name)
         elif tags.get("natural") == "cave_entrance":
-            special_trips.append(name)
-
-    def uniq(items):
-        return list(dict.fromkeys(items))[:limit_each]
+            special.append(name)
+        elif tags.get("tourism") == "attraction" or tags.get("historic") is not None:
+            # these can be day trips too
+            special.append(name)
 
     return {
-        "Nearby Hill/Nature Trips (Day Trips) ⛰️": uniq(hill_trips),
-        "Nearby Waterfalls/Nature 🌿": uniq(nature_trips),
-        "Nearby Beaches 🏖️": uniq(beach_trips),
-        "Special Places (Caves etc.) 🕳️": uniq(special_trips),
+        "Nearby Hill/Nature Trips (Day Trips) ⛰️": uniq(hills)[:limit_each],
+        "Nearby Waterfalls/Nature 🌿": uniq(nature)[:limit_each],
+        "Nearby Beaches 🏖️": uniq(beaches)[:limit_each],
+        "Special Places / Attractions ✨": uniq(special)[:limit_each],
     }
