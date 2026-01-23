@@ -17,21 +17,39 @@ def get_client():
     return InferenceClient(model=MODEL_ID, token=token)
 
 
-def generate_text(prompt: str, temperature: float = 0.7, max_new_tokens: int = 700) -> str:
+def generate_text(prompt: str, temperature: float = 0.7, max_new_tokens: int = 3500) -> str:
     """
     Generate response using Llama 3.1 Instruct (chat style).
+    
+    IMPORTANT: Llama 3.1-8B has 8192 token context limit TOTAL (prompt + response).
+    With optimized prompts (~1000 tokens), we have ~3500 tokens for response.
     """
     client = get_client()
 
     messages = [
-        {"role": "system", "content": "You are a helpful travel planning assistant."},
+        {
+            "role": "system", 
+            "content": "You are a professional travel planner. Always complete all sections fully."
+        },
         {"role": "user", "content": prompt},
     ]
 
-    response = client.chat.completions.create(
-        messages=messages,
-        temperature=temperature,
-        max_tokens=max_new_tokens
-    )
+    try:
+        response = client.chat.completions.create(
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_new_tokens,
+            stream=False
+        )
 
-    return response.choices[0].message["content"]
+        generated_text = response.choices[0].message["content"]
+
+        finish_reason = getattr(response.choices[0], 'finish_reason', None)
+        if finish_reason == "length":
+            st.warning("⚠️ Response truncated. Try reducing trip days or simplifying prompt.")
+        
+        return generated_text
+        
+    except Exception as e:
+        st.error(f"Error generating text: {str(e)}")
+        raise
