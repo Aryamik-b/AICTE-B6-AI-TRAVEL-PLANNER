@@ -32,10 +32,12 @@ def is_valid_tourist_place(name: str) -> bool:
 
         "store", "mart", "supermarket", "bakery", "salon",
 
-        
         "club", "tennis", "gym", "fitness", "association",
 
-        
+        "arena", "badminton", "yoga", "swimming", "pool",
+        "restaurant", "hotel", "cafe", "bar", "lounge",
+        "complex", "residency", "apartment", "villa",
+
         "temple", "church", "mosque"
 
         "yoga", "swimming pool", "pool", "resort", "villa", "apartment"
