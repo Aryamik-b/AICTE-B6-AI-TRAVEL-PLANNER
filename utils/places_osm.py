@@ -1,6 +1,19 @@
 import requests
 import streamlit as st
 
+def is_valid_tourist_place(name: str) -> bool:
+    if not name:
+        return False
+    n = name.lower()
+
+    blacklist = [
+        "club", "tennis", "gym", "school", "college", "office", "corporation",
+        "pvt", "private", "hospital", "clinic", "atm", "police", "bank",
+        "apartment", "residency", "hostel", "complex"
+    ]
+
+    return not any(b in n for b in blacklist)
+
 
 @st.cache_data(ttl=3600)
 def search_cities(query: str, limit: int = 8):
@@ -35,7 +48,14 @@ def search_cities(query: str, limit: int = 8):
 def clean_city_name(full_location: str) -> str:
     if not full_location:
         return ""
-    return full_location.split(",")[0].strip()
+    city = full_location.split(",")[0].strip()
+
+    bad = ["corporation", "municipality", "district", "division", "region"]
+    for word in bad:
+        city = city.replace(word.title(), "").replace(word.lower(), "").strip()
+
+    return city
+
 
 
 
