@@ -98,6 +98,17 @@ IMPORTANT OUTPUT RULES:
 - Include beaches / hill stations / waterfalls / adventure / water parks if available.
 - Costs must be approximate and clearly mentioned as estimates.
 - Use the currency: {currency}
+- Each day must include 2–4 places max (avoid overload).
+- Prefer places geographically near each other.
+
+STRICT DATA RULE:
+- Use ONLY places from CITY HIGHLIGHTS and NEARBY DAY TRIPS lists for itinerary.
+- Do NOT invent new place names.
+- If insufficient places are available, reuse the best ones or write "Not available".
+- While writing itinerary, explicitly mention places exactly as given in the lists.
+- Do not shorten or rename the place names.
+- While writing itinerary, use the exact place names as given (no renaming).
+- Each day should contain 2–4 places maximum (realistic pace).
 
 Return the response with these Markdown headings:
 
@@ -112,11 +123,12 @@ Day 2:
 - Daily movement strategy
 
 ## Estimated Budget Breakdown ({currency})
-- Transport:
-- Stay:
-- Food:
-- Activities:
-- Total Estimated Range:
+- Transport: {currency} <min>-<max>
+- Stay: {currency} <min>-<max>
+- Food: {currency} <min>-<max>
+- Activities: {currency} <min>-<max>
+- Total Estimated Range: {currency} <min>-<max>
+
 
 ## Food Recommendations
 - At least 5 local dishes
