@@ -19,7 +19,7 @@ def is_valid_tourist_place(name: str) -> bool:
     blacklist = [
 
         "nagar", "colony", "layout", "extension", "enclave", "vihar",
-        "sector", "phase", "block", "ward", "street", "road", "lane",
+        "sector", "phase", "block", "ward", "road", "lane",
         "avenue", "circle", "junction", "signal", "cross",
 
         "corporation", "municipality", "office", "collectorate",
@@ -38,9 +38,7 @@ def is_valid_tourist_place(name: str) -> bool:
         "restaurant", "hotel", "cafe", "bar", "lounge",
         "complex", "residency", "apartment", "villa",
 
-        "temple", "church", "mosque"
-
-        "yoga", "swimming pool", "pool", "resort", "villa", "apartment"
+        "yoga", "swimming pool","resort"
 
     ]
 

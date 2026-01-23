@@ -115,6 +115,10 @@ TOURIST QUALITY RULE:
 - Avoid generic places like: swimming pool, yoga, club, gym, apartment, school, hospital, locality names.
 - Use beaches/forts/churches/museums over residential/local facilities.
 
+QUALITY RULE:
+- Choose only well-known tourist places from the lists.
+- Avoid clubs, arenas, pools, yoga centers, localities, residential names.
+
 Return the response with these Markdown headings:
 
 ## Day-wise Itinerary
