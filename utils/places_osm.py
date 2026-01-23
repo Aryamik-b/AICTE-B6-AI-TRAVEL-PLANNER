@@ -3,6 +3,8 @@ import streamlit as st
 import re
 
 
+import re
+
 def is_valid_tourist_place(name: str) -> bool:
     if not name:
         return False
@@ -15,41 +17,46 @@ def is_valid_tourist_place(name: str) -> bool:
     if re.fullmatch(r"[0-9\-_/]+", n):
         return False
 
-    
+    if re.search(r"[<>={}\[\]\\|~]", n):
+        return False
+
+    bad_phrases = [
+        "room", "rooms", "guest house", "guesthouse", "lodge", "lodging",
+        "hostel", "pg", "homestay", "dorm", "dormitory",
+        "villa", "resort", "hotel", "restaurant", "cafe", "bar", "lounge",
+        "apartment", "residency"
+    ]
+    if any(p in n for p in bad_phrases):
+        return False
+
     blacklist = [
 
         "nagar", "colony", "layout", "extension", "enclave", "vihar",
-        "sector", "phase", "block", "ward", "road", "lane",
-        "avenue", "circle", "junction", "signal", "cross",
+        "sector", "phase", "block", "ward",
+        "street", "road", "lane", "avenue", "circle", "junction", "signal", "cross",
 
         "corporation", "municipality", "office", "collectorate",
         "secretariat", "department",
 
-        "atm", "bank", "police", "station", "post office", "courier",
+        "atm", "bank", "police", "post office", "courier",
         "hospital", "clinic", "pharmacy", "medical", "diagnostic",
         "school", "college", "university", "institute", "coaching",
-        "hostel", "pg", "apartment", "residency", "complex",
 
         "store", "mart", "supermarket", "bakery", "salon",
 
         "club", "tennis", "gym", "fitness", "association",
-
         "arena", "badminton", "yoga", "swimming", "pool",
-        "restaurant", "hotel", "cafe", "bar", "lounge",
-        "complex", "residency", "apartment", "villa",
-
-        "yoga", "swimming pool","resort"
-
     ]
 
     if any(b in n for b in blacklist):
         return False
 
-    generic_names = {"park", "beach", "museum", "lake", "viewpoint"}
+    generic_names = {"park", "beach", "museum", "lake", "viewpoint", "temple", "church"}
     if n in generic_names:
         return False
 
     return True
+
 
 
 def uniq(items):

@@ -117,8 +117,9 @@ TOURIST QUALITY RULE:
 - Use beaches/forts/churches/museums over residential/local facilities.
 
 QUALITY RULE:
-- Choose only well-known tourist places from the lists.
-- Avoid clubs, arenas, pools, yoga centers, localities, residential names.
+- Do NOT include residential areas/localities (e.g., Nagar/Colony/Layout).
+- Do NOT include any place whose name contains: Room, Arena, Club, Gym, Yoga, Pool.
+- Prefer famous tourist places: beaches, forts, museums, viewpoints, waterfalls, sanctuaries.
 
 REALISTIC TRAVEL TIME ESTIMATE:
 {travel_time_hint}
