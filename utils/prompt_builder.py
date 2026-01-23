@@ -49,6 +49,7 @@ def build_prompt(
     attractions: list,
     city_categories: dict,
     nearby_trips: dict,
+    travel_time_hint: str = "Not available",
 ) -> str:
     """
     Build one strong prompt (no template files needed).
@@ -118,6 +119,14 @@ TOURIST QUALITY RULE:
 QUALITY RULE:
 - Choose only well-known tourist places from the lists.
 - Avoid clubs, arenas, pools, yoga centers, localities, residential names.
+
+REALISTIC TRAVEL TIME ESTIMATE:
+{travel_time_hint}
+
+TIME RULE:
+- Use the above estimate for inter-city travel time.
+- Do NOT invent unrealistic travel durations.
+
 
 Return the response with these Markdown headings:
 

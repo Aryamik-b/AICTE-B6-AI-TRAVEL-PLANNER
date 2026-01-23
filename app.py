@@ -4,6 +4,7 @@ from utils.llm import generate_text
 from utils.places_osm import (
     search_cities,
     clean_city_name,
+    geocode_city,
     get_attractions_osm,
     get_city_categories,
     get_nearby_day_trips,
@@ -11,8 +12,16 @@ from utils.places_osm import (
 from utils.prompt_builder import build_prompt
 from utils.export_pdf import generate_pdf_bytes
 
+from utils.travel_time import (
+    haversine_km,
+    estimate_travel_time,
+    format_hours_range,
+)
 
 
+# ----------------------------------------------------
+# Page Config
+# ----------------------------------------------------
 st.set_page_config(
     page_title="AI Travel Planner",
     page_icon="🧳",
@@ -25,14 +34,17 @@ st.write(
     "Generates itinerary, transport plan, budget estimation, food & tips."
 )
 
+# Initialize session storage for generated plan
 if "last_plan" not in st.session_state:
     st.session_state["last_plan"] = ""
 
 
-
+# ----------------------------------------------------
+# Sidebar Inputs
+# ----------------------------------------------------
 st.sidebar.header("Trip Details")
 
-
+# Destination autocomplete
 st.sidebar.subheader("📍 Destination")
 dest_query = st.sidebar.text_input(
     "Type destination (min 2 letters)",
@@ -47,6 +59,7 @@ else:
 
 destination_city = clean_city_name(destination_full)
 
+# Departure autocomplete
 st.sidebar.subheader("🏁 Departure (Optional)")
 dep_query = st.sidebar.text_input(
     "Type departure city (optional)",
@@ -79,6 +92,9 @@ interests = st.sidebar.multiselect(
 temperature = st.sidebar.slider("Creativity (Temperature)", 0.0, 1.0, 0.7, 0.1)
 
 
+# ----------------------------------------------------
+# Main UI
+# ----------------------------------------------------
 col1, col2 = st.columns([1, 1])
 
 with col1:
@@ -109,7 +125,6 @@ with col2:
                     for p in places:
                         st.write("•", p)
 
-        
         for cat, places in nearby_trips.items():
             if places:
                 found_any = True
@@ -125,12 +140,26 @@ with col2:
 st.markdown("---")
 
 
-
+# ----------------------------------------------------
+# Generate Travel Plan
+# ----------------------------------------------------
 if st.button("🚀 Generate Travel Plan"):
     if not destination_city or len(destination_city) < 2:
         st.warning("Please enter/select a destination.")
     else:
         try:
+            # ✅ UNIVERSAL Travel time hint (any cities)
+            travel_time_hint = "Not available"
+
+            if departure_full and destination_city:
+                dep_coords = geocode_city(departure_full)
+                dest_coords = geocode_city(destination_city)
+
+                if dep_coords and dest_coords:
+                    dist_km = haversine_km(dep_coords[0], dep_coords[1], dest_coords[0], dest_coords[1])
+                    low, high, mode = estimate_travel_time(dist_km, transport_pref)
+                    travel_time_hint = f"{mode}: approx {format_hours_range(low, high)} (distance ~{dist_km:.0f} km)"
+
             with st.spinner("Preparing travel data..."):
                 attractions = get_attractions_osm(destination_city, limit=12, radius_m=20000)
                 if not attractions:
@@ -139,6 +168,7 @@ if st.button("🚀 Generate Travel Plan"):
                 city_categories = get_city_categories(destination_city, radius_m=40000, limit_each=8)
                 nearby_trips = get_nearby_day_trips(destination_city, radius_m=200000, limit_each=8)
 
+                # ✅ pass travel_time_hint into prompt
                 prompt = build_prompt(
                     destination_full=destination_full,
                     destination_city=destination_city,
@@ -152,6 +182,7 @@ if st.button("🚀 Generate Travel Plan"):
                     attractions=attractions,
                     city_categories=city_categories,
                     nearby_trips=nearby_trips,
+                    travel_time_hint=travel_time_hint,  # ✅ NEW
                 )
 
             with st.spinner("Generating travel plan with LLM..."):
@@ -161,7 +192,6 @@ if st.button("🚀 Generate Travel Plan"):
                     max_new_tokens=1200
                 )
 
-            
             st.session_state["last_plan"] = output_text
 
         except Exception as e:
@@ -169,14 +199,18 @@ if st.button("🚀 Generate Travel Plan"):
             st.code(str(e))
 
 
-
+# ----------------------------------------------------
+# Display Plan + Download PDF
+# ----------------------------------------------------
 if st.session_state["last_plan"]:
     st.subheader("✅ AI Travel Plan")
-    st.markdown(st.session_state["last_plan"])
+    plan_text = st.session_state["last_plan"]
+
+    st.markdown(plan_text)
 
     pdf_bytes = generate_pdf_bytes(
         title=f"AI Travel Plan - {destination_city}",
-        content=st.session_state["last_plan"]
+        content=plan_text
     )
 
     st.download_button(
